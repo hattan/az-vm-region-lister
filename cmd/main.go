@@ -59,6 +59,16 @@ func getLocations() []string {
 	return regions
 }
 
+func saveVMSizesAsJSON(fileName string, data models.VmSizes) {
+	file, _ := json.MarshalIndent(data, "", " ")
+	_ = ioutil.WriteFile(fileName, file, 0644)
+}
+
+func saveStringArrayAsJSON(fileName string, data []string) {
+	file, _ := json.MarshalIndent(data, "", " ")
+	_ = ioutil.WriteFile(fileName, file, 0644)
+}
+
 func main() {
 	var wg sync.WaitGroup
 	locations := getLocations()
@@ -74,14 +84,29 @@ func main() {
 		wg.Wait()
 	}()
 
+	var virtualMachineSizes []string
 	for sizes := range c {
 		if sizes != nil && len(sizes) > 0 {
+			for _, size := range sizes {
+				if !stringInSlice(size.Name, virtualMachineSizes) {
+					virtualMachineSizes = append(virtualMachineSizes, size.Name)
+				}
+			}
 			all = append(all, sizes...)
 		}
 	}
 
-	file, _ := json.MarshalIndent(all, "", " ")
-	_ = ioutil.WriteFile("test.json", file, 0644)
+	saveVMSizesAsJSON("size-location.json", all)
+	saveStringArrayAsJSON("size.json", virtualMachineSizes)
 
 	fmt.Println("Complete")
+}
+
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }
