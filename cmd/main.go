@@ -7,22 +7,56 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
+	"github.com/hattan/az-vm-region-lister/pkg/models"
 )
 
-func main() {
-	fmt.Println("Az VM Size Lister!")
+var subscriptionID = os.Getenv("AZURE_SUBSCRIPTION_ID")
 
-	// create a VirtualMachineSizes client
-	vmSizesClient := compute.NewVirtualMachineSizesClient(os.Getenv("SUBSCRIPTION_ID"))
+func getVMSizes(region string) (models.VmSizes, error) {
+	vmSizesClient := compute.NewVirtualMachineSizesClient(subscriptionID)
 
-	// create authorizer for client
-	authorizer, err := auth.NewAuthorizerFromFile("https://management.azure.com/")
+	authorizer, err := auth.NewAuthorizerFromEnvironment()
 	if err == nil {
 		vmSizesClient.Authorizer = authorizer
 	}
 
-	vmSizesList, err := vmSizesClient.List(context.Background(), "westus2")
+	var vmSizes models.VmSizes
+	vmSizesList, err := vmSizesClient.List(context.Background(), region)
+	if err != nil {
+		return nil, err
+	}
+	for _, vm := range *vmSizesList.Value {
+		size := models.VmSize{
+			Name:     *vm.Name,
+			Location: region,
+		}
+		vmSizes = append(vmSizes, size)
+	}
+	return vmSizes, nil
+}
 
-	fmt.Println(err)
-	fmt.Println(vmSizesList)
+func getLocations() []string {
+	return []string{
+		"eastus",
+		"eastus2",
+		"southcentralus",
+		"westus2",
+	}
+}
+func main() {
+	locations := getLocations()
+	var all models.VmSizes
+	for _, location := range locations {
+		sizes, err := getVMSizes(location)
+		if err != nil {
+			fmt.Println(err)
+		} else {
+			if sizes != nil && len(sizes) > 0 {
+				all = append(all, sizes...)
+			}
+		}
+	}
+
+	fmt.Println(all)
+
 }
