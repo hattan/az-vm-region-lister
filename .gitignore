@@ -17,6 +17,7 @@
 # VSCode
 .vscode/
 
+cmd/*.json
 test*.json
 size*.json
 regions.json
