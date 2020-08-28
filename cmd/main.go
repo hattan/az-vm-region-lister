@@ -38,7 +38,6 @@ func getVMSizes(region string, c chan models.VmSizes, onExit func()) {
 					Location: region,
 				}
 				vmSizes = append(vmSizes, size)
-				//fmt.Printf("size: %s region: %s \n", size.Name, region)
 			}
 			fmt.Printf("region:%s complete\n", region)
 			c <- vmSizes
@@ -47,12 +46,17 @@ func getVMSizes(region string, c chan models.VmSizes, onExit func()) {
 }
 
 func getLocations() []string {
-	return []string{
-		"eastus",
-		"eastus2",
-		"southcentralus",
-		"westus2",
+	jsonFile, err := os.Open("../regions.json")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(-1)
 	}
+	fmt.Println("Successfully Opened regions.json")
+	defer jsonFile.Close()
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+	var regions []string
+	json.Unmarshal(byteValue, &regions)
+	return regions
 }
 
 func main() {
