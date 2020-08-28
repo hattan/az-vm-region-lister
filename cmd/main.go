@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"sync"
 
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
@@ -11,28 +14,36 @@ import (
 )
 
 var subscriptionID = os.Getenv("AZURE_SUBSCRIPTION_ID")
+var all models.VmSizes
 
-func getVMSizes(region string) (models.VmSizes, error) {
-	vmSizesClient := compute.NewVirtualMachineSizesClient(subscriptionID)
+func getVMSizes(region string, c chan models.VmSizes, onExit func()) {
+	go func() {
+		defer onExit()
+		fmt.Printf("Processing: %s", region)
+		vmSizesClient := compute.NewVirtualMachineSizesClient(subscriptionID)
 
-	authorizer, err := auth.NewAuthorizerFromEnvironment()
-	if err == nil {
-		vmSizesClient.Authorizer = authorizer
-	}
-
-	var vmSizes models.VmSizes
-	vmSizesList, err := vmSizesClient.List(context.Background(), region)
-	if err != nil {
-		return nil, err
-	}
-	for _, vm := range *vmSizesList.Value {
-		size := models.VmSize{
-			Name:     *vm.Name,
-			Location: region,
+		authorizer, err := auth.NewAuthorizerFromEnvironment()
+		if err == nil {
+			vmSizesClient.Authorizer = authorizer
 		}
-		vmSizes = append(vmSizes, size)
-	}
-	return vmSizes, nil
+
+		var vmSizes models.VmSizes
+		vmSizesList, err := vmSizesClient.List(context.Background(), region)
+		if err != nil {
+			fmt.Printf("region:%s error:%s\n", region, err)
+		} else {
+			for _, vm := range *vmSizesList.Value {
+				size := models.VmSize{
+					Name:     *vm.Name,
+					Location: region,
+				}
+				vmSizes = append(vmSizes, size)
+				//fmt.Printf("size: %s region: %s \n", size.Name, region)
+			}
+			fmt.Printf("region:%s complete\n", region)
+			c <- vmSizes
+		}
+	}()
 }
 
 func getLocations() []string {
@@ -43,20 +54,28 @@ func getLocations() []string {
 		"westus2",
 	}
 }
+
 func main() {
+	var wg sync.WaitGroup
 	locations := getLocations()
-	var all models.VmSizes
+	c := make(chan models.VmSizes)
+
 	for _, location := range locations {
-		sizes, err := getVMSizes(location)
-		if err != nil {
-			fmt.Println(err)
-		} else {
-			if sizes != nil && len(sizes) > 0 {
-				all = append(all, sizes...)
-			}
+		wg.Add(1)
+		getVMSizes(location, c, func() { wg.Done() })
+	}
+
+	go func() {
+		defer close(c)
+		wg.Wait()
+	}()
+
+	for sizes := range c {
+		if sizes != nil && len(sizes) > 0 {
+			all = append(all, sizes...)
 		}
 	}
 
-	fmt.Println(all)
-
+	file, _ := json.MarshalIndent(all, "", " ")
+	_ = ioutil.WriteFile("test.json", file, 0644)
 }
