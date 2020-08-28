@@ -9,6 +9,8 @@ import (
 	"sync"
 
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
+	"github.com/Azure/azure-sdk-for-go/profiles/latest/resources/mgmt/subscriptions"
+	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/hattan/az-vm-region-lister/pkg/models"
 )
@@ -16,16 +18,23 @@ import (
 var subscriptionID = os.Getenv("AZURE_SUBSCRIPTION_ID")
 var all models.VmSizes
 
-func getVMSizes(region string, c chan models.VmSizes, onExit func()) {
+func getAuthorizer() autorest.Authorizer {
+	authorizer, err := auth.NewAuthorizerFromEnvironment()
+	if err != nil {
+		fmt.Printf("Authorization Error: %s", err)
+		os.Exit(-1)
+	}
+	return authorizer
+}
+
+func getVMSizes(authorizer autorest.Authorizer, region string, c chan models.VmSizes, onExit func()) {
 	go func() {
 		defer onExit()
 		fmt.Printf("Processing: %s", region)
-		vmSizesClient := compute.NewVirtualMachineSizesClient(subscriptionID)
 
-		authorizer, err := auth.NewAuthorizerFromEnvironment()
-		if err == nil {
-			vmSizesClient.Authorizer = authorizer
-		}
+		// Set up vmSizesClient
+		vmSizesClient := compute.NewVirtualMachineSizesClient(subscriptionID)
+		vmSizesClient.Authorizer = authorizer
 
 		var vmSizes models.VmSizes
 		vmSizesList, err := vmSizesClient.List(context.Background(), region)
@@ -45,18 +54,23 @@ func getVMSizes(region string, c chan models.VmSizes, onExit func()) {
 	}()
 }
 
-func getLocations() []string {
-	jsonFile, err := os.Open("../regions.json")
+func getLocations(authorizer autorest.Authorizer) []string {
+	subscriptionClient := subscriptions.NewClient()
+	subscriptionClient.Authorizer = authorizer
+	locations, err := subscriptionClient.ListLocations(context.Background(), subscriptionID)
 	if err != nil {
 		fmt.Println(err)
-		os.Exit(-1)
 	}
-	fmt.Println("Successfully Opened regions.json")
-	defer jsonFile.Close()
-	byteValue, _ := ioutil.ReadAll(jsonFile)
-	var regions []string
-	json.Unmarshal(byteValue, &regions)
-	return regions
+	fmt.Println(locations)
+
+	var locationNames []string
+
+	for _, location := range *locations.Value {
+		name := location.Name
+		locationNames = append(locationNames, *name)
+	}
+
+	return locationNames
 }
 
 func saveVMSizesAsJSON(fileName string, data models.VmSizes) {
@@ -70,13 +84,17 @@ func saveStringArrayAsJSON(fileName string, data []string) {
 }
 
 func main() {
+	// Create authorizer
+	authorizer := getAuthorizer()
+
 	var wg sync.WaitGroup
-	locations := getLocations()
+	locations := getLocations(authorizer)
+
 	c := make(chan models.VmSizes)
 
 	for _, location := range locations {
 		wg.Add(1)
-		getVMSizes(location, c, func() { wg.Done() })
+		getVMSizes(authorizer, location, c, func() { wg.Done() })
 	}
 
 	go func() {
