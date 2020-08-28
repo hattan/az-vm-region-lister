@@ -78,4 +78,6 @@ func main() {
 
 	file, _ := json.MarshalIndent(all, "", " ")
 	_ = ioutil.WriteFile("test.json", file, 0644)
+
+	fmt.Println("Complete")
 }
