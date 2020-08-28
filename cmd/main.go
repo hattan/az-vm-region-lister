@@ -57,9 +57,21 @@ func getLocations() []string {
 	var regions []string
 	json.Unmarshal(byteValue, &regions)
 	return regions
+
+	// // Create an Azure management client
+	// azureClient := management.NewAnonymousClient()
+
+	// // Create a location client from the management client
+	// locationClient := location.newClient(azureClient)
+
+	// // Get list of locations
+	// locationResponse, err := locationClient.ListLications()
+	// fmt.Println(err)
+	// fmt.Println(locationResponse)
 }
 
 func main() {
+	getLocations()
 	var wg sync.WaitGroup
 	locations := getLocations()
 	c := make(chan models.VmSizes)
