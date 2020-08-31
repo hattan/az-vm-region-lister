@@ -8,6 +8,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/Azure/azure-sdk-for-go/management"
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/hattan/az-vm-region-lister/pkg/models"
@@ -46,28 +47,33 @@ func getVMSizes(region string, c chan models.VmSizes, onExit func()) {
 }
 
 func getLocations() []string {
-	jsonFile, err := os.Open("../regions.json")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(-1)
-	}
-	fmt.Println("Successfully Opened regions.json")
-	defer jsonFile.Close()
-	byteValue, _ := ioutil.ReadAll(jsonFile)
-	var regions []string
-	json.Unmarshal(byteValue, &regions)
-	return regions
+	// jsonFile, err := os.Open("../regions.json")
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	os.Exit(-1)
+	// }
+	// fmt.Println("Successfully Opened regions.json")
+	// defer jsonFile.Close()
+	// byteValue, _ := ioutil.ReadAll(jsonFile)
+	// var regions []string
+	// json.Unmarshal(byteValue, &regions)
+	// return regions
 
-	// // Create an Azure management client
-	// azureClient := management.NewAnonymousClient()
+	// Create an Azure management client
+	azureClient := management.NewAnonymousClient()
 
-	// // Create a location client from the management client
-	// locationClient := location.newClient(azureClient)
+	// Create a location client from the management client
+	locationClient := location.newClient(azureClient)
 
-	// // Get list of locations
-	// locationResponse, err := locationClient.ListLications()
-	// fmt.Println(err)
-	// fmt.Println(locationResponse)
+	// Get list of locations
+	locationResponse, err := locationClient.ListLocations()
+	fmt.Println(err)
+	fmt.Println(locationResponse)
+
+	// Getting rid of errors
+	var tempArray []string
+	tempArray = append(tempArray, "string1")
+	return tempArray
 }
 
 func saveVMSizesAsJSON(fileName string, data models.VmSizes) {
