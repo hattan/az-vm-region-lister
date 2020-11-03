@@ -2,7 +2,7 @@ package models
 
 type VmSize struct {
 	Name     string
-	Location Region
+	Location string
 }
 
 type VmSizes []VmSize

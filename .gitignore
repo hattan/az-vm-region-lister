@@ -13,3 +13,12 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+# VSCode
+.vscode/
+
+cmd/*.json
+test*.json
+size*.json
+regions.json
+env.sh
